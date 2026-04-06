@@ -1,0 +1,49 @@
+--Script: Buscador Global de Tablas
+-- 1. Configuración de búsqueda y red
+DECLARE @TablaABuscar NVARCHAR(128) = '%NombreDeTuTabla%'; -- Puedes usar % para búsquedas parciales
+DECLARE @IP_Servidor NVARCHAR(50) = CAST(CONNECTIONPROPERTY('local_net_address') AS NVARCHAR(50));
+DECLARE @Nombre_Fisico NVARCHAR(128) = CAST(SERVERPROPERTY('MachineName') AS NVARCHAR(128));
+DECLARE @Nombre_Instancia NVARCHAR(128) = CAST(SERVERPROPERTY('ServerName') AS NVARCHAR(128));
+DECLARE @Tu_Equipo_Cliente NVARCHAR(128) = HOST_NAME();
+
+IF OBJECT_ID('tempdb..#ResultadosBusqueda') IS NOT NULL DROP TABLE #ResultadosBusqueda;
+
+CREATE TABLE #ResultadosBusqueda (
+    BaseDeDatos NVARCHAR(128),
+    Esquema NVARCHAR(128),
+    NombreTabla NVARCHAR(128),
+    TipoObjeto NVARCHAR(60),
+    FechaCreacion DATETIME,
+    IP_Servidor NVARCHAR(50),
+    Nombre_Fisico NVARCHAR(128),
+    Nombre_Instancia NVARCHAR(128),
+    Tu_Equipo_Cliente NVARCHAR(128)
+);
+
+DECLARE @sql NVARCHAR(MAX);
+
+-- 2. Construcción del query dinámico
+SET @sql = '
+USE [?];
+INSERT INTO #ResultadosBusqueda
+SELECT 
+    DB_NAME(),
+    s.name,
+    t.name,
+    t.type_desc,
+    t.create_date,
+    ''' + ISNULL(@IP_Servidor, 'Local/SharedMem') + ''',
+    ''' + @Nombre_Fisico + ''',
+    ''' + @Nombre_Instancia + ''',
+    ''' + @Tu_Equipo_Cliente + '''
+FROM sys.tables t
+JOIN sys.schemas s ON t.schema_id = s.schema_id
+WHERE t.name LIKE ''' + @TablaABuscar + ''';
+';
+
+-- 3. Ejecución en todas las BDs
+EXEC sp_MSforeachdb @sql;
+
+-- 4. Resultado Final
+SELECT * FROM #ResultadosBusqueda
+ORDER BY BaseDeDatos, NombreTabla;
