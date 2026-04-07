@@ -1,4 +1,4 @@
---Script: Buscador Global de Tablas
+---Script: Buscador Global de Tablas
 -- 1. Configuración de búsqueda y red
 DECLARE @TablaABuscar NVARCHAR(128) = '%NombreDeTuTabla%'; -- Puedes usar % para búsquedas parciales
 DECLARE @IP_Servidor NVARCHAR(50) = CAST(CONNECTIONPROPERTY('local_net_address') AS NVARCHAR(50));
@@ -47,3 +47,26 @@ EXEC sp_MSforeachdb @sql;
 -- 4. Resultado Final
 SELECT * FROM #ResultadosBusqueda
 ORDER BY BaseDeDatos, NombreTabla;
+
+
+---Script: Buscador Global de Tablas base
+DECLARE @SearchTerm NVARCHAR(256) = '%Archivo0357%'; -- Busca cualquier tabla que contenga "ventas"
+
+IF OBJECT_ID('tempdb..#Resultados') IS NOT NULL DROP TABLE #Resultados;
+CREATE TABLE #Resultados (
+    BaseDeDatos NVARCHAR(128),
+    Esquema NVARCHAR(128),
+    Tabla NVARCHAR(128)
+);
+
+DECLARE @Sql NVARCHAR(MAX) = '
+    USE [?];
+    INSERT INTO #Resultados
+    SELECT DB_NAME() as db, s.name as esquema, t.name as tbl
+FROM sys.tables t
+INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+    WHERE t.name LIKE ''' + @SearchTerm + '''';
+
+EXEC sp_MSforeachdb @Sql;
+
+SELECT * FROM #Resultados ORDER BY BaseDeDatos, Tabla;
